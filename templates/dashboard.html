@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Cold Email Generator{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-lg-5">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-pen"></i> Generate Cold Email</h5>
+            </div>
+            <div class="card-body">
+                <form id="emailForm">
+                    <div class="mb-3">
+                        <label for="url" class="form-label">Company Website URL</label>
+                        <input type="url" class="form-control" id="url" name="url" placeholder="https://example.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="prospect_name" class="form-label">Prospect Name</label>
+                        <input type="text" class="form-control" id="prospect_name" name="prospect_name" placeholder="John Doe" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="prospect_role" class="form-label">Prospect Role</label>
+                        <input type="text" class="form-control" id="prospect_role" name="prospect_role" placeholder="Marketing Director" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email_goal" class="form-label">Email Goal</label>
+                        <input type="text" class="form-control" id="email_goal" name="email_goal" placeholder="Schedule a demo call" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tone" class="form-label">Tone</label>
+                        <select class="form-select" id="tone" name="tone">
+                            <option value="professional">Professional</option>
+                            <option value="casual">Casual</option>
+                            <option value="friendly">Friendly</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="prev_email" class="form-label">Previous Email Context (optional)</label>
+                        <textarea class="form-control" id="prev_email" name="prev_email" rows="3" placeholder="Paste any previous email for context..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100" id="generateBtn">
+                        <i class="fas fa-magic"></i> Generate Emails
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-envelope-open-text"></i> Generated Emails</h5>
+            </div>
+            <div class="card-body" id="resultArea">
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <p>Fill in the form and click "Generate Emails" to get started.</p>
+                </div>
+            </div>
+        </div>
+        <div class="card shadow-sm mt-3" id="sourcesCard" style="display:none;">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-globe"></i> Scraped Sources</h5>
+            </div>
+            <div class="card-body" id="sourcesArea"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('emailForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('generateBtn');
+    const resultArea = document.getElementById('resultArea');
+    const sourcesCard = document.getElementById('sourcesCard');
+    const sourcesArea = document.getElementById('sourcesArea');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+    resultArea.innerHTML = '<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Scraping website and generating emails...</p></div>';
+
+    const data = {
+        url: document.getElementById('url').value,
+        prospect_name: document.getElementById('prospect_name').value,
+        prospect_role: document.getElementById('prospect_role').value,
+        email_goal: document.getElementById('email_goal').value,
+        tone: document.getElementById('tone').value,
+        prev_email: document.getElementById('prev_email').value
+    };
+
+    fetch('/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.error) {
+            resultArea.innerHTML = '<div class="alert alert-danger">' + result.error + '</div>';
+        } else {
+            let emailHtml = '<div class="mb-2"><span class="badge bg-secondary">Model: ' + result.model + '</span></div>';
+            emailHtml += '<div class="email-content">' + result.emails.replace(/\n/g, '<br>') + '</div>';
+            resultArea.innerHTML = emailHtml;
+
+            if (result.sources) {
+                sourcesCard.style.display = 'block';
+                sourcesArea.innerHTML = '<p><strong>Title:</strong> ' + (result.sources.title || 'N/A') + '</p>' +
+                    '<p><strong>Description:</strong> ' + (result.sources.description || 'N/A') + '</p>' +
+                    '<p><strong>URL:</strong> <a href="' + result.sources.url + '" target="_blank">' + result.sources.url + '</a></p>';
+            }
+        }
+    })
+    .catch(err => {
+        resultArea.innerHTML = '<div class="alert alert-danger">An error occurred. Please try again.</div>';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-magic"></i> Generate Emails';
+    });
+});
+</script>
+{% endblock %}

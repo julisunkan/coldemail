@@ -1,14 +1,18 @@
 from flask import Flask, render_template, request, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
-import requests
+from werkzeug.middleware.proxy_fix import ProxyFix
+import requests as http_requests
 from bs4 import BeautifulSoup
 import google.generativeai as genai
 import os
-import time
+import logging
 from datetime import datetime, timedelta
 
+logging.basicConfig(level=logging.DEBUG)
+
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.environ.get("SESSION_SECRET")
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -28,7 +32,7 @@ def get_rate_limit_count(ip):
 
 def scrape_website(url):
     try:
-        response = requests.get(url, timeout=10)
+        response = http_requests.get(url, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
         
         title = soup.title.string if soup.title else ""
@@ -119,5 +123,12 @@ def generate():
         "sources": website_info
     })
 
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
